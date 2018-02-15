@@ -4,7 +4,8 @@ import (
 	"sync"
 	"google.golang.org/grpc"
 	"context"
-	"github.com/dispatchlabs/dapos/grpc"
+	"github.com/dispatchlabs/dapos/proto"
+	log "github.com/sirupsen/logrus"
 )
 
 // DAPoSService
@@ -21,6 +22,9 @@ func NewDAPoSService() *DAPoSService {
 
 // Init
 func (daposService *DAPoSService) Init() {
+	log.WithFields(log.Fields{
+		"method": "DAPoSService.Init",
+	}).Info("init...")
 }
 
 // Name
@@ -35,7 +39,7 @@ func (daposService *DAPoSService) IsRunning() bool {
 
 // Register
 func (daposService *DAPoSService) RegisterGrpc(grpcServer *grpc.Server) {
-	proto.RegisterDAPoSServiceServer(grpcServer, daposService)
+	proto.RegisterDAPoSGrpcServer(grpcServer, daposService)
 }
 
 // Go

@@ -34,10 +34,10 @@ func main() {
 	go daposService.Go(nil)
 
 	// Serve.
-	reflection.Register(grpcServer)
 	log.WithFields(log.Fields{
 		"method": "main",
 	}).Info("listening on 1975...")
+	reflection.Register(grpcServer)
 	if error := grpcServer.Serve(listener); error != nil {
 		log.Fatalf("failed to serve: %v", error)
 	}

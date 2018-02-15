@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package proto;
 
-service DAPoSService {
+service DAPoSGrpc {
 	rpc BroadcastTransaction(Transaction) returns (TransactionResponse) {}
 	rpc ReceiveTransaction(Transaction) returns (TransactionResponse) {}
 }
