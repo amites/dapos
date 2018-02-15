@@ -34,4 +34,5 @@ func (daposService *DAPoSService) Register(listener *net.Listener) {
 
 // Go
 func (daposService *DAPoSService) Go(waitGroup *sync.WaitGroup) {
+	daposService.running = true
 }
