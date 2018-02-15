@@ -1,8 +1,8 @@
 package core
 
 import (
-	"sync"
-	"net"
+"sync"
+"google.golang.org/grpc"
 )
 
 // DAPoSService
@@ -28,7 +28,7 @@ func (daposService *DAPoSService) IsRunning() bool {
 }
 
 // Register
-func (daposService *DAPoSService) Register(listener *net.Listener) {
+func (daposService *DAPoSService) RegisterGrpc(grpcServer *grpc.Server) {
 
 }
 
