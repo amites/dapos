@@ -1,8 +1,10 @@
 package core
 
 import (
-"sync"
-"google.golang.org/grpc"
+	"sync"
+	"google.golang.org/grpc"
+	"context"
+	"github.com/dispatchlabs/dapos/grpc"
 )
 
 // DAPoSService
@@ -17,6 +19,10 @@ func NewDAPoSService() *DAPoSService {
 	}
 }
 
+// Init
+func (daposService *DAPoSService) Init() {
+}
+
 // Name
 func (daposService *DAPoSService) Name() string {
 	return "DAPoSService"
@@ -29,10 +35,20 @@ func (daposService *DAPoSService) IsRunning() bool {
 
 // Register
 func (daposService *DAPoSService) RegisterGrpc(grpcServer *grpc.Server) {
-
+	proto.RegisterDAPoSServiceServer(grpcServer, daposService)
 }
 
 // Go
 func (daposService *DAPoSService) Go(waitGroup *sync.WaitGroup) {
 	daposService.running = true
+}
+
+// BroadcastTransaction
+func (daposService *DAPoSService) BroadcastTransaction(context.Context, *proto.Transaction) (*proto.TransactionResponse, error) {
+	return nil, nil
+}
+
+// ReceiveTransaction
+func (daposService *DAPoSService) ReceiveTransaction(context.Context, *proto.Transaction) (*proto.TransactionResponse, error) {
+	return nil, nil
 }
