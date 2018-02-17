@@ -6,6 +6,7 @@ import (
 	"context"
 	"github.com/dispatchlabs/dapos/proto"
 	log "github.com/sirupsen/logrus"
+	"github.com/dispatchlabs/disgo_commons/types"
 )
 
 // DAPoSService
@@ -55,4 +56,11 @@ func (daposService *DAPoSService) BroadcastTransaction(context.Context, *proto.T
 // ReceiveTransaction
 func (daposService *DAPoSService) ReceiveTransaction(context.Context, *proto.Transaction) (*proto.TransactionResponse, error) {
 	return nil, nil
+}
+
+// CreateTransaction
+func (daposService *DAPoSService) CreateTransaction(transaction types.Transaction) {
+	log.WithFields(log.Fields{
+		"method": "DAPoSService.Foo",
+	}).Info("Foo")
 }
