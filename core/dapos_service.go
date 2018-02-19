@@ -5,9 +5,9 @@ import (
 	"google.golang.org/grpc"
 	"golang.org/x/net/context"
 	"github.com/dispatchlabs/dapos/proto"
-	"github.com/dispatchlabs/disgo_commons/types"
 	log "github.com/sirupsen/logrus"
 	"time"
+	"github.com/dispatchlabs/disgo_commons/types"
 )
 
 // DAPoSService
@@ -26,7 +26,7 @@ func NewDAPoSService() *DAPoSService {
 func (daposService *DAPoSService) Init() {
 	log.WithFields(log.Fields{
 		"method": "DAPoSService.Init",
-	}).Info("init...")
+	}).Info("initializing...")
 }
 
 // Name
@@ -84,4 +84,9 @@ func (daposService *DAPoSService) ReceiveTransaction(ctx context.Context, in *pr
 	log.Printf(string(trans.Value))
 	return &proto.TransactionResponse{
 	}, nil
+}
+
+// CreateTransaction
+func (daposService *DAPoSService) CreateTransaction(transaction *types.Transaction, transactions []types.Transaction) (*types.Transaction, error) {
+	return nil, nil
 }
