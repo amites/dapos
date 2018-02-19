@@ -25,7 +25,7 @@ func NewDAPoSService() *DAPoSService {
 func (daposService *DAPoSService) Init() {
 	log.WithFields(log.Fields{
 		"method": "DAPoSService.Init",
-	}).Info("init...")
+	}).Info("initializing...")
 }
 
 // Name
@@ -59,8 +59,6 @@ func (daposService *DAPoSService) ReceiveTransaction(context.Context, *proto.Tra
 }
 
 // CreateTransaction
-func (daposService *DAPoSService) CreateTransaction(transaction types.Transaction) {
-	log.WithFields(log.Fields{
-		"method": "DAPoSService.Foo",
-	}).Info("Foo")
+func (daposService *DAPoSService) CreateTransaction(transaction *types.Transaction, transactions []types.Transaction) (*types.Transaction, error) {
+	return nil, nil
 }
