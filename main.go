@@ -4,9 +4,12 @@ import (
 	"net"
 	"os"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	"github.com/dispatchlabs/dapos/core"
+	"github.com/dispatchlabs/dapos/proto"
+
 )
 
 func main() {
@@ -41,4 +44,12 @@ func main() {
 	if error := grpcServer.Serve(listener); error != nil {
 		log.Fatalf("failed to serve: %v", error)
 	}
+
+	conn, err := grpc.Dial("localhost:1975", grpc.WithInsecure())
+	if err != nil {
+		log.Fatalf("cannot dial server: %v", err)
+	}
+	client := proto.NewDAPoSGrpcClient(conn)
+	client.BroadcastTransaction(context.Background(), &proto.Transaction{})
+
 }

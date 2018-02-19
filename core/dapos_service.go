@@ -3,9 +3,11 @@ package core
 import (
 	"sync"
 	"google.golang.org/grpc"
-	"context"
+	"golang.org/x/net/context"
 	"github.com/dispatchlabs/dapos/proto"
+	"github.com/dispatchlabs/disgo_commons/types"
 	log "github.com/sirupsen/logrus"
+	"time"
 )
 
 // DAPoSService
@@ -49,10 +51,37 @@ func (daposService *DAPoSService) Go(waitGroup *sync.WaitGroup) {
 
 // BroadcastTransaction
 func (daposService *DAPoSService) BroadcastTransaction(context.Context, *proto.Transaction) (*proto.TransactionResponse, error) {
+	log.Printf("BroadcastTransaction")
 	return nil, nil
 }
 
+func BroadcastTx(*types.Transaction) {
+	log.Printf("BroadcastTransaction")
+	//TODO: convert types.Transaction to proto.Transaction and send
+}
+
 // ReceiveTransaction
-func (daposService *DAPoSService) ReceiveTransaction(context.Context, *proto.Transaction) (*proto.TransactionResponse, error) {
-	return nil, nil
+func (daposService *DAPoSService) ReceiveTransaction(ctx context.Context, in *proto.Transaction) (*proto.TransactionResponse, error) {
+	log.Printf("ReceiveTransaction")
+	toAddr, err := types.NewWalletAddress()
+	if(err != nil) {
+		panic("problem creating to address")
+	}
+	fromAddr, err := types.NewWalletAddress()
+	if(err != nil) {
+		panic("problem creating to address")
+	}
+	trans := types.Transaction {
+		//Hash: in.Hash,
+		Type: int(in.Type),
+		To: *toAddr,
+		From: *fromAddr,
+		Value: in.Value,
+		Time: time.Unix(in.Time, 0),
+	}
+
+	//TODO: just here to remove the unused warning ... remove
+	log.Printf(string(trans.Value))
+	return &proto.TransactionResponse{
+	}, nil
 }

@@ -1,0 +1,266 @@
+package core
+
+import (
+	"fmt"
+	"strings"
+	"github.com/dispatchlabs/disgo_commons/types"
+	log "github.com/sirupsen/logrus"
+)
+
+type Block struct {
+	Prev        *Block
+	Next        *Block
+	Transaction types.Transaction
+}
+
+type Node struct {
+	GenesisBlock *Block
+	CurrentBlock *Block
+	VoteChannel  chan Vote
+	Wallet       types.WalletAccount
+
+	IsDelegate      bool
+	TxFromChainById map[int64]*types.Transaction
+	AllVotes        map[int64]*Votes
+}
+
+
+func (node *Node) ProcessTx(tx *types.Transaction) {
+	go func() {
+
+		var logLines = []string{}
+		var additionalLogLines = []string{}
+
+		if !getNodeByAddress(tx.From).IsDelegate {
+			// if transaction came from non-delegate node (new)
+
+			logLines = append(logLines, fmt.Sprintf("GotTX()-node    | Tx_%d(%s -> %s) | %s", tx.TxId, tx.From, tx.To, node.Wallet.Id))
+
+			additionalLogLines = node.validateBlockAndTransmit(tx, "non-delegate")
+		} else {
+			//transactions from delegates should be reevaluated
+			//TODO: process unseen transactions from other delegates
+			//if transaction came from another delegate,
+			// check to see if it's been seen before then process it
+
+			logLines = append(logLines, fmt.Sprintf("GotTX()-dlgate  | Tx_%d(%s -> %s) | %s", tx.TxId, tx.From, tx.To, node.Wallet.Id))
+
+			if _, ok := node.TxFromChainById[tx.TxId]; !ok {
+				additionalLogLines = node.validateBlockAndTransmit(tx, "delegate")
+			} else {
+				additionalLogLines = append(additionalLogLines, fmt.Sprintf("delegate %s: skipping received transaction %d from delegate X", node.Wallet.Id, tx.TxId))
+			}
+		}
+
+		additionalLogLines = prefixLinesWith(additionalLogLines, "    ")
+		logLines = append(logLines, additionalLogLines...)
+
+		log.Info(strings.Join(logLines, "\n"))
+	}()
+}
+
+func (node *Node) validateBlockAndTransmit(tx *types.Transaction, sourceType string) []string {
+	var logLines = []string{}
+	var additionalLogLines = []string{}
+
+	logLines = append(logLines, fmt.Sprintf("validateBlock()"))
+
+	valid, additionalLogLines := node.processTransaction(tx)
+
+	additionalLogLines = prefixLinesWith(additionalLogLines, "    ")
+	logLines = append(logLines, additionalLogLines...)
+
+	if valid {
+		logLines = append(logLines, fmt.Sprintf("Node ID: %s, Transaction ID: %d, From: %s, Node: %s, Value: %d", node.Wallet.Id, node.CurrentBlock.Transaction.TxId, sourceType, node.Wallet.Id, tx.Value))
+		logLines = append(logLines, fmt.Sprintf("delegate %s: received valid transaction %d from a %s node X with value: %d", node.Wallet.Id, node.CurrentBlock.Transaction.TxId, sourceType, tx.Value))
+
+		// save the transaction to the chain
+		newBlock := Block{nil, nil, *tx}
+		node.CurrentBlock.Next = &newBlock
+		node.CurrentBlock = &newBlock
+
+		node.TxFromChainById[tx.TxId] = tx
+
+		node.VoteCounterProcessTx(tx)
+
+		// set the delegate id to current id and broadcast the valid transaction to other nodes
+
+		for k, _ := range getNodes() {
+			destinationNode := getNodes()[k]
+			if destinationNode.IsDelegate &&
+				destinationNode.Wallet.Id != node.Wallet.Id &&
+				!contains(tx.CurrentValidators, destinationNode.Wallet.Address) {
+
+				logLines = append(logLines, fmt.Sprintf("sendTx()        | Tx_%d(%s -> %s) | %s -> %s", tx.TxId, tx.From, tx.To, node.Wallet.Id, destinationNode.Wallet.Id))
+				go BroadcastTx(tx)
+
+				logLines = append(logLines, fmt.Sprintf("sendVote()-true | Tx_%d(%s -> %s) | %s -> %s", tx.TxId, tx.From, tx.To, node.Wallet.Id, destinationNode.Wallet.Id))
+				go func() {
+					destinationNode.VoteChannel <- Vote{
+						TransactionId: tx.TxId,
+						YesNo:         true,
+					}
+				}()
+			}
+		}
+	} else {
+		logLines = append(logLines, fmt.Sprintf("Node ID: %s, Transaction: %d, From: %s, From ID: %s, Value: %d", node.Wallet.Id, tx.TxId, sourceType, tx.From, tx.Value))
+
+		// Info("Received an invalid transaction")
+		logLines = append(logLines, fmt.Sprintf("delegate %s: received invalid transaction %d from an %s X with value: %d\n", node.Wallet.Id, tx.TxId, sourceType, tx.Value))
+
+		// go func() {
+		for k, _ := range getNodes() {
+			destinationNode := getNodes()[k]
+			if destinationNode.IsDelegate &&
+				destinationNode.Wallet.Id != node.Wallet.Id {
+
+				logLines = append(logLines, fmt.Sprintf("sendVote()-false | Tx_%d(%s -> %s) | %s -> %s", tx.TxId, tx.From, tx.To, node.Wallet.Id, destinationNode.Wallet.Id))
+				go func() {
+					destinationNode.VoteChannel <- Vote{
+						TransactionId: tx.TxId,
+						YesNo:         false,
+					}
+				}()
+			}
+		}
+		// }()
+	}
+
+	return logLines
+}
+
+//processing the transaction consists of:
+//adding the transaction in it's proper place in the time-sorted linked list
+//checking that transaction and the ones following it for validity
+//return true if transaction is valid
+func (node *Node) processTransaction(tx *types.Transaction) (bool, []string) {
+	var logLines = []string{}
+
+	logLines = append(logLines, fmt.Sprintf("processTransaction()"))
+
+	var validators = []types.WalletAddress{}
+	for _, v := range tx.CurrentValidators {
+		validators = append(validators, v)
+	}
+	//logLines = append(logLines, fmt.Sprintf("Tx_%d(%s -> [%d] -> %s) SeenBy{%s}", tx.TxId, tx.From, tx.Value, tx.To, strings.Join(validators, ",")))
+
+	// Add THIS node as a validator, to be sent later
+	tx.CurrentValidators = append(tx.CurrentValidators, node.Wallet.Address)
+
+	// Don't validate transactions on 0 or less
+	if tx.Value <= 0 {
+		logLines = append(logLines, fmt.Sprintf("Invalid TX"))
+		return false, logLines
+	}
+
+	// new balance maping
+	newBalances := make(map[types.WalletAddress]int64)
+	newBalances[tx.From] = (*getNodes()[tx.From]).Wallet.Balance
+	newBalances[tx.To] = (*getNodes()[tx.To]).Wallet.Balance
+
+	pointerBlock := node.CurrentBlock
+
+	var blockIndex = 0
+
+	// iterate until new_balances matches up with blockchain state at time of transaction
+	for {
+		if pointerBlock.Next == nil { // pointerBlock is end of the chain
+			newBalances[pointerBlock.Transaction.To] += pointerBlock.Transaction.Value
+
+			if pointerBlock.Transaction.From != node.GenesisBlock.Transaction.From { //don't set a negative balance for premined transfers
+				newBalances[pointerBlock.Transaction.From] -= pointerBlock.Transaction.Value
+			}
+			break
+		} else {
+			blockIndex++
+
+			// break if tx goes after pointerBlock, but before pointerBlock.Next
+			if tx.Time.After(pointerBlock.Transaction.Time) && tx.Time.Before(pointerBlock.Next.Transaction.Time) {
+
+				logLines = append(logLines, fmt.Sprintf("pointerBlock.Transaction.Id: %d, pointerBlock.Next.Transaction.Id: %d", pointerBlock.Transaction.TxId, pointerBlock.Next.Transaction.TxId))
+				logLines = append(logLines, fmt.Sprintf("tx goes between tx %d and tx %d \n", pointerBlock.Transaction.TxId, pointerBlock.Next.Transaction.TxId))
+				newBalances[pointerBlock.Transaction.To] += pointerBlock.Transaction.Value
+
+				if pointerBlock.Transaction.From != node.GenesisBlock.Transaction.From { //don't set a negative balance for premined transfers
+					newBalances[pointerBlock.Transaction.From] -= pointerBlock.Transaction.Value
+				}
+				break
+			} else {
+				// if tx.time doesn't follow pointerBlock, update new_balance and iterate
+				newBalances[pointerBlock.Transaction.To] += pointerBlock.Transaction.Value
+
+				if pointerBlock.Transaction.From != node.GenesisBlock.Transaction.From { //don't set a negative balance for premined transfers
+					newBalances[pointerBlock.Transaction.From] -= pointerBlock.Transaction.Value
+				}
+				pointerBlock = pointerBlock.Next
+			}
+		}
+	}
+
+	logLines = append(logLines, fmt.Sprintf("we are at the block index %d", blockIndex))
+
+	logLines = append(logLines, fmt.Sprintf("pointerBlock.Transaction.Id: %d", pointerBlock.Transaction.TxId))
+	logLines = append(logLines, fmt.Sprintf("new_balances[]: %s, Balance: %d", tx.From, newBalances[tx.From]))
+
+	logLines = append(logLines, fmt.Sprintf("current block is %d", pointerBlock.Transaction.TxId))
+	logLines = append(logLines, fmt.Sprintf("new_balances[%s]=%d", tx.From, newBalances[tx.From]))
+
+	// is new transaction valid?
+	if newBalances[tx.From] >= tx.Value {
+
+		// if so make a new block and add it to the chain
+		newValidBlock := &Block{pointerBlock, pointerBlock.Next, *tx}
+
+		pointerBlock.Next = newValidBlock
+		if newValidBlock.Next != nil {
+			newValidBlock.Next.Prev = newValidBlock
+		}
+
+		// Update balances to reflect the recent addition
+		newBalances[tx.From] = newBalances[tx.From] - tx.Value
+		newBalances[tx.To] = newBalances[tx.To] + tx.Value
+
+		// And then check following blocks for validity
+		// using revoked_blocks to keep track of now invalid transactions
+		pointerBlock = newValidBlock
+		for pointerBlock.Next != nil {
+			// is the following transaction valid?
+			if newBalances[pointerBlock.Transaction.From] >= pointerBlock.Transaction.Value {
+				logLines = append(logLines, fmt.Sprintf("yay! transaction %d is still valid", pointerBlock.Transaction.TxId))
+				//yay! transaction is valid - update balances and continue onto next block
+				newBalances[pointerBlock.Transaction.From] -= pointerBlock.Transaction.Value
+				newBalances[pointerBlock.Transaction.To] += pointerBlock.Transaction.Value
+
+				if pointerBlock.Next == nil {
+					break
+				} else {
+					pointerBlock = pointerBlock.Next
+				}
+			}
+			if newBalances[pointerBlock.Transaction.From] < pointerBlock.Transaction.Value {
+				logLines = append(logLines, fmt.Sprintf("turns out transaction %d is invalid \n", pointerBlock.Transaction.TxId))
+				//oh no! this previously believed valid block is actually invaid! D:
+				//remove block from list and keep going
+				pointerBlock.Prev.Next = pointerBlock.Next
+				pointerBlock.Next.Prev = pointerBlock.Prev
+			}
+		}
+
+		// when finished, broadcast awesome new block and potentially broken transactions
+		return true, logLines
+	}
+
+	// if new transaction is not valid, drop that bitch like it's hot
+	logLines = append(logLines, fmt.Sprintf("Invalid TX"))
+	return false, logLines
+}
+
+func contains(arr []types.WalletAddress, str types.WalletAddress) bool {
+	for _, a := range arr {
+		if a == str {
+			return true
+		}
+	}
+	return false
+}
