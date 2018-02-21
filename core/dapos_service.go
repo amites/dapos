@@ -2,16 +2,16 @@ package core
 
 import (
 	"sync"
-	"google.golang.org/grpc"
 	"golang.org/x/net/context"
 	"github.com/dispatchlabs/dapos/proto"
 	log "github.com/sirupsen/logrus"
 	"time"
 	"github.com/dispatchlabs/disgo_commons/types"
-	service "github.com/dispatchlabs/disgo_commons/service"
+	"github.com/dispatchlabs/disgo_commons/services"
 )
 
 var node *Node
+
 // DAPoSService
 type DAPoSService struct {
 	running bool
@@ -19,21 +19,11 @@ type DAPoSService struct {
 
 // NewDAPoSService
 func NewDAPoSService() *DAPoSService {
-
 	daposService := &DAPoSService{
 		running: false,
 	}
-	daposService.Init()
-	daposService.RegisterGrpc(service.GetGrpcServer())
-
+	proto.RegisterDAPoSGrpcServer(services.GetGrpcServer(), daposService)
 	return daposService
-}
-
-// Init
-func (daposService *DAPoSService) Init() {
-	log.WithFields(log.Fields{
-		"method": "DAPoSService.Init",
-	}).Info("initializing...")
 }
 
 // Name
@@ -44,11 +34,6 @@ func (daposService *DAPoSService) Name() string {
 // IsRunning
 func (daposService *DAPoSService) IsRunning() bool {
 	return daposService.running
-}
-
-// Register
-func (daposService *DAPoSService) RegisterGrpc(grpcServer *grpc.Server) {
-	proto.RegisterDAPoSGrpcServer(grpcServer, daposService)
 }
 
 // Go
