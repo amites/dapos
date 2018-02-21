@@ -8,6 +8,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"time"
 	"github.com/dispatchlabs/disgo_commons/types"
+	service "github.com/dispatchlabs/disgo_commons/service"
 )
 
 var node *Node
@@ -18,9 +19,14 @@ type DAPoSService struct {
 
 // NewDAPoSService
 func NewDAPoSService() *DAPoSService {
-	return &DAPoSService{
+
+	daposService := &DAPoSService{
 		running: false,
 	}
+	daposService.Init()
+	daposService.RegisterGrpc(service.GetGrpcServer())
+
+	return daposService
 }
 
 // Init
