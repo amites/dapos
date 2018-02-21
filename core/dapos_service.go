@@ -10,6 +10,7 @@ import (
 	"github.com/dispatchlabs/disgo_commons/types"
 )
 
+var node *Node
 // DAPoSService
 type DAPoSService struct {
 	running bool
@@ -47,6 +48,11 @@ func (daposService *DAPoSService) RegisterGrpc(grpcServer *grpc.Server) {
 // Go
 func (daposService *DAPoSService) Go(waitGroup *sync.WaitGroup) {
 	daposService.running = true
+	wa, err := types.NewWalletAddress()
+	if(err != nil) {
+		panic(err)
+	}
+	node = CreateNodeAndAddToList(*wa, "Bob", 100)
 }
 
 // BroadcastTransaction
@@ -79,6 +85,7 @@ func (daposService *DAPoSService) ReceiveTransaction(ctx context.Context, in *pr
 		Value: in.Value,
 		Time: time.Unix(in.Time, 0),
 	}
+	node.ProcessTx(&trans)
 
 	//TODO: just here to remove the unused warning ... remove
 	log.Printf(string(trans.Value))

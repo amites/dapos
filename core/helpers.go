@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 	"github.com/dispatchlabs/disgo_commons/types"
+	"github.com/dispatchlabs/disgo_commons/crypto"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -74,7 +75,7 @@ var GenesisBlock = &Block{
 
 	Transaction: types.Transaction{
 		0,
-		bytes,
+		crypto.CreateHash(),
 		0,
 		types.WalletAddress{},
 		types.WalletAddress{},
@@ -84,7 +85,7 @@ var GenesisBlock = &Block{
 	},
 }
 
-func CreateNodeAndAddToList(address types.WalletAddress, newMember string, initialBalance int64) {
+func CreateNodeAndAddToList(address types.WalletAddress, newMember string, initialBalance int64) (*Node) {
 	wallet := types.WalletAccount{
 		newMember,
 		types.WalletAddress{},
@@ -104,6 +105,7 @@ func CreateNodeAndAddToList(address types.WalletAddress, newMember string, initi
 	node.CurrentBlock = node.GenesisBlock
 
 	getNodes()[address] = &node
+	return &node
 }
 
 func ElectDelegate(address types.WalletAddress) {

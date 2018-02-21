@@ -26,37 +26,34 @@ type Node struct {
 
 
 func (node *Node) ProcessTx(tx *types.Transaction) {
-	go func() {
+	var logLines = []string{}
+	var additionalLogLines = []string{}
 
-		var logLines = []string{}
-		var additionalLogLines = []string{}
+	if !getNodeByAddress(tx.From).IsDelegate {
+		// if transaction came from non-delegate node (new)
 
-		if !getNodeByAddress(tx.From).IsDelegate {
-			// if transaction came from non-delegate node (new)
+		logLines = append(logLines, fmt.Sprintf("GotTX()-node    | Tx_%d(%s -> %s) | %s", tx.TxId, tx.From, tx.To, node.Wallet.Id))
 
-			logLines = append(logLines, fmt.Sprintf("GotTX()-node    | Tx_%d(%s -> %s) | %s", tx.TxId, tx.From, tx.To, node.Wallet.Id))
+		additionalLogLines = node.validateBlockAndTransmit(tx, "non-delegate")
+	} else {
+		//transactions from delegates should be reevaluated
+		//TODO: process unseen transactions from other delegates
+		//if transaction came from another delegate,
+		// check to see if it's been seen before then process it
 
-			additionalLogLines = node.validateBlockAndTransmit(tx, "non-delegate")
+		logLines = append(logLines, fmt.Sprintf("GotTX()-dlgate  | Tx_%d(%s -> %s) | %s", tx.TxId, tx.From, tx.To, node.Wallet.Id))
+
+		if _, ok := node.TxFromChainById[tx.TxId]; !ok {
+			additionalLogLines = node.validateBlockAndTransmit(tx, "delegate")
 		} else {
-			//transactions from delegates should be reevaluated
-			//TODO: process unseen transactions from other delegates
-			//if transaction came from another delegate,
-			// check to see if it's been seen before then process it
-
-			logLines = append(logLines, fmt.Sprintf("GotTX()-dlgate  | Tx_%d(%s -> %s) | %s", tx.TxId, tx.From, tx.To, node.Wallet.Id))
-
-			if _, ok := node.TxFromChainById[tx.TxId]; !ok {
-				additionalLogLines = node.validateBlockAndTransmit(tx, "delegate")
-			} else {
-				additionalLogLines = append(additionalLogLines, fmt.Sprintf("delegate %s: skipping received transaction %d from delegate X", node.Wallet.Id, tx.TxId))
-			}
+			additionalLogLines = append(additionalLogLines, fmt.Sprintf("delegate %s: skipping received transaction %d from delegate X", node.Wallet.Id, tx.TxId))
 		}
+	}
 
-		additionalLogLines = prefixLinesWith(additionalLogLines, "    ")
-		logLines = append(logLines, additionalLogLines...)
+	additionalLogLines = prefixLinesWith(additionalLogLines, "    ")
+	logLines = append(logLines, additionalLogLines...)
 
-		log.Info(strings.Join(logLines, "\n"))
-	}()
+	log.Info(strings.Join(logLines, "\n"))
 }
 
 func (node *Node) validateBlockAndTransmit(tx *types.Transaction, sourceType string) []string {
