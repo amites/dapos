@@ -85,10 +85,10 @@ var GenesisBlock = &Block{
 	},
 }
 
-func CreateNodeAndAddToList(address types.WalletAddress, newMember string, initialBalance int64) (*Node) {
+func CreateNodeAndAddToList(address types.WalletAddress, newMember string, initialBalance int64, isDelegate bool) (*Node) {
 	wallet := types.WalletAccount{
 		newMember,
-		types.WalletAddress{},
+		address,
 		newMember,
 		initialBalance,
 	}
@@ -98,7 +98,7 @@ func CreateNodeAndAddToList(address types.WalletAddress, newMember string, initi
 		CurrentBlock:    nil,
 		VoteChannel:     make(chan Vote),
 		Wallet:          wallet,
-		IsDelegate:      false,
+		IsDelegate:      isDelegate,
 		TxFromChainById: map[int64]*types.Transaction{},
 		AllVotes:        make(map[int64]*Votes),
 	}

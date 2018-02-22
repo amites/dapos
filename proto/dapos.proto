@@ -5,12 +5,13 @@ package proto;
 service DAPoSGrpc {
 	rpc BroadcastTransaction(Transaction) returns (TransactionResponse) {}
 	rpc ReceiveTransaction(Transaction) returns (TransactionResponse) {}
+	rpc RegisterTestNode(TestNode) returns (TransactionResponse) {}
 }
 
 message Transaction {
 	bytes       hash        = 1;
-	string      from        = 2;
-	string      to          = 3;
+	bytes       from        = 2;
+	bytes       to          = 3;
 	int64       value       = 4;
 	int64       time        = 5;
 	int64       delegateId  = 6;
@@ -19,4 +20,10 @@ message Transaction {
 
 message TransactionResponse {
     Transaction t = 1;
+}
+
+message TestNode {
+	bytes  address = 1;
+	string name = 2;
+	int64  balance = 3;
 }
