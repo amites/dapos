@@ -7,6 +7,7 @@ import (
 	"github.com/dispatchlabs/disgo_commons/types"
 	"github.com/dispatchlabs/disgo_commons/crypto"
 	log "github.com/sirupsen/logrus"
+	"github.com/dispatchlabs/disgo_commons/constants"
 )
 
 func logSeparator() {
@@ -32,8 +33,8 @@ func GetRandomNumber(boundary int) int {
 	return r1.Intn(boundary)
 }
 
-func getDictKeysAsList() []types.WalletAddress {
-	keys := make([]types.WalletAddress, 0)
+func getDictKeysAsList() [][constants.AddressLength]byte {
+	keys := make([][constants.AddressLength]byte, 0)
 	for k, _ := range getNodes() {
 		keys = append(keys, k)
 	}
@@ -63,7 +64,7 @@ func getRandomNonDelegateNode(nodeToIgnore *Node) *Node {
 }
 
 
-var nodes *map[types.WalletAddress]*Node
+var nodes *map[[constants.AddressLength]byte]*Node
 
 var once sync.Once
 
@@ -72,20 +73,19 @@ var bytes = make([]byte, 0, 0)
 var GenesisBlock = &Block{
 	Prev: nil,
 	Next: nil,
-
 	Transaction: types.Transaction{
 		0,
-		crypto.CreateHash(),
+		crypto.NewHash(),
 		0,
-		types.WalletAddress{},
-		types.WalletAddress{},
+		[constants.AddressLength]byte{},
+		[constants.AddressLength]byte{},
 		100,
 		time.Now(),
-		[]types.WalletAddress{},
+		[][constants.AddressLength]byte{},
 	},
 }
 
-func CreateNodeAndAddToList(address types.WalletAddress, newMember string, initialBalance int64, isDelegate bool) (*Node) {
+func CreateNodeAndAddToList(address [constants.AddressLength]byte, newMember string, initialBalance int64, isDelegate bool) (*Node) {
 	wallet := types.WalletAccount{
 		newMember,
 		address,
@@ -108,18 +108,18 @@ func CreateNodeAndAddToList(address types.WalletAddress, newMember string, initi
 	return &node
 }
 
-func ElectDelegate(address types.WalletAddress) {
+func ElectDelegate(address [constants.AddressLength]byte) {
 	getNodes()[address].IsDelegate = true
 	getNodes()[address].StartVoteCounting()
 }
 
-func getNodes() map[types.WalletAddress]*Node {
+func getNodes() map[[constants.AddressLength]byte]*Node {
 	once.Do(func() {
-		nodes = &map[types.WalletAddress]*Node{}
+		nodes = &map[[constants.AddressLength]byte]*Node{}
 	})
 	return *nodes
 }
 
-func getNodeByAddress(address types.WalletAddress) *Node {
+func getNodeByAddress(address [constants.AddressLength]byte) *Node {
 	return getNodes()[address]
 }

@@ -8,6 +8,7 @@ import (
 	"time"
 	"github.com/dispatchlabs/disgo_commons/types"
 	"github.com/dispatchlabs/disgo_commons/services"
+	"github.com/dispatchlabs/disgo_commons/crypto"
 )
 
 var node *Node
@@ -51,12 +52,12 @@ func (daposService *DAPoSService) IsRunning() bool {
 // Go
 func (daposService *DAPoSService) Go(waitGroup *sync.WaitGroup) {
 	daposService.running = true
-	wa, err := types.NewWalletAddress()
+	wa, err := crypto.NewWalletAddress()
 	if(err != nil) {
 		panic(err)
 	}
 	//TODO: Temporary code
-	node = CreateNodeAndAddToList(*wa,"DelegateNode", 0, true)
+	node = CreateNodeAndAddToList(wa,"DelegateNode", 0, true)
 }
 
 // BroadcastTransaction
@@ -75,18 +76,17 @@ func BroadcastTx(*types.Transaction) {
 func (daposService *DAPoSService) ReceiveTransaction(ctx context.Context, in *proto.Transaction) (*proto.TransactionResponse, error) {
 	log.Printf("ReceiveTransaction")
 
-	trans := types.Transaction {
-		//Hash: in.Hash,
-		Type: int(in.Type),
-		To: 	*types.GetAddressFromBytes(in.To),
-		From:	*types.GetAddressFromBytes(in.From),
-		Value: in.Value,
-		Time: time.Unix(in.Time, 0),
-	}
-	node.ProcessTx(&trans)
+	transaction := &types.Transaction{}
+	transaction.Type = int(in.Type)
+	transaction.Hash = crypto.ToHash(in.Hash)
+	copy(transaction.To[:], in.To)
+	copy(transaction.From[:], in.From)
+	transaction.Value = in.Value
+	transaction.Time = time.Unix(in.Time, 0)
+	node.ProcessTx(transaction)
 
 	//TODO: just here to remove the unused warning ... don't think we need to have any response
-	log.Printf(string(trans.Value))
+	log.Printf(string(transaction.Value))
 	return &proto.TransactionResponse{
 	}, nil
 }
@@ -94,8 +94,9 @@ func (daposService *DAPoSService) ReceiveTransaction(ctx context.Context, in *pr
 //TODO: Temporary code for testing the call to consensus.  This allows a client caller to have nodes to use that will be recognized here
 func (daposService *DAPoSService) RegisterTestNode(ctx context.Context, inNode *proto.TestNode) (*proto.TransactionResponse, error) {
 	log.Printf("RegisterTestNode %s", inNode.Name)
-	wa := types.GetAddressFromBytes(inNode.Address)
-	CreateNodeAndAddToList(*wa, inNode.Name, inNode.Balance, false)
+	walletAddress := [20]byte{}
+	copy(walletAddress[:], inNode.Address)
+	CreateNodeAndAddToList(walletAddress, inNode.Name, inNode.Balance, false)
 	return &proto.TransactionResponse{}, nil
 }
 

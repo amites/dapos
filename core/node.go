@@ -5,6 +5,7 @@ import (
 	"strings"
 	"github.com/dispatchlabs/disgo_commons/types"
 	log "github.com/sirupsen/logrus"
+	"github.com/dispatchlabs/disgo_commons/constants"
 )
 
 type Block struct {
@@ -32,7 +33,7 @@ func (node *Node) ProcessTx(tx *types.Transaction) {
 	if !getNodeByAddress(tx.From).IsDelegate {
 		// if transaction came from non-delegate node (new)
 
-		logLines = append(logLines, fmt.Sprintf("GotTX()-node    | Tx_%d(%s -> %s) | %s", tx.TxId, tx.From, tx.To, node.Wallet.Id))
+		logLines = append(logLines, fmt.Sprintf("GotTX()-node    | Tx_%d(%s -> %s) | %s", tx.Id, tx.From, tx.To, node.Wallet.Id))
 
 		additionalLogLines = node.validateBlockAndTransmit(tx, "non-delegate")
 	} else {
@@ -41,12 +42,12 @@ func (node *Node) ProcessTx(tx *types.Transaction) {
 		//if transaction came from another delegate,
 		// check to see if it's been seen before then process it
 
-		logLines = append(logLines, fmt.Sprintf("GotTX()-dlgate  | Tx_%d(%s -> %s) | %s", tx.TxId, tx.From, tx.To, node.Wallet.Id))
+		logLines = append(logLines, fmt.Sprintf("GotTX()-dlgate  | Tx_%d(%s -> %s) | %s", tx.Id, tx.From, tx.To, node.Wallet.Id))
 
-		if _, ok := node.TxFromChainById[tx.TxId]; !ok {
+		if _, ok := node.TxFromChainById[tx.Id]; !ok {
 			additionalLogLines = node.validateBlockAndTransmit(tx, "delegate")
 		} else {
-			additionalLogLines = append(additionalLogLines, fmt.Sprintf("delegate %s: skipping received transaction %d from delegate X", node.Wallet.Id, tx.TxId))
+			additionalLogLines = append(additionalLogLines, fmt.Sprintf("delegate %s: skipping received transaction %d from delegate X", node.Wallet.Id, tx.Id))
 		}
 	}
 
@@ -68,15 +69,15 @@ func (node *Node) validateBlockAndTransmit(tx *types.Transaction, sourceType str
 	logLines = append(logLines, additionalLogLines...)
 
 	if valid {
-		logLines = append(logLines, fmt.Sprintf("Node ID: %s, Transaction ID: %d, From: %s, Node: %s, Value: %d", node.Wallet.Id, node.CurrentBlock.Transaction.TxId, sourceType, node.Wallet.Id, tx.Value))
-		logLines = append(logLines, fmt.Sprintf("delegate %s: received valid transaction %d from a %s node X with value: %d", node.Wallet.Id, node.CurrentBlock.Transaction.TxId, sourceType, tx.Value))
+		logLines = append(logLines, fmt.Sprintf("Node ID: %s, Transaction ID: %d, From: %s, Node: %s, Value: %d", node.Wallet.Id, node.CurrentBlock.Transaction.Id, sourceType, node.Wallet.Id, tx.Value))
+		logLines = append(logLines, fmt.Sprintf("delegate %s: received valid transaction %d from a %s node X with value: %d", node.Wallet.Id, node.CurrentBlock.Transaction.Id, sourceType, tx.Value))
 
 		// save the transaction to the chain
 		newBlock := Block{nil, nil, *tx}
 		node.CurrentBlock.Next = &newBlock
 		node.CurrentBlock = &newBlock
 
-		node.TxFromChainById[tx.TxId] = tx
+		node.TxFromChainById[tx.Id] = tx
 
 		node.VoteCounterProcessTx(tx)
 
@@ -88,23 +89,23 @@ func (node *Node) validateBlockAndTransmit(tx *types.Transaction, sourceType str
 				destinationNode.Wallet.Id != node.Wallet.Id &&
 				!contains(tx.CurrentValidators, destinationNode.Wallet.Address) {
 
-				logLines = append(logLines, fmt.Sprintf("sendTx()        | Tx_%d(%s -> %s) | %s -> %s", tx.TxId, tx.From, tx.To, node.Wallet.Id, destinationNode.Wallet.Id))
+				logLines = append(logLines, fmt.Sprintf("sendTx()        | Tx_%d(%s -> %s) | %s -> %s", tx.Id, tx.From, tx.To, node.Wallet.Id, destinationNode.Wallet.Id))
 				go BroadcastTx(tx)
 
-				logLines = append(logLines, fmt.Sprintf("sendVote()-true | Tx_%d(%s -> %s) | %s -> %s", tx.TxId, tx.From, tx.To, node.Wallet.Id, destinationNode.Wallet.Id))
+				logLines = append(logLines, fmt.Sprintf("sendVote()-true | Tx_%d(%s -> %s) | %s -> %s", tx.Id, tx.From, tx.To, node.Wallet.Id, destinationNode.Wallet.Id))
 				go func() {
 					destinationNode.VoteChannel <- Vote{
-						TransactionId: tx.TxId,
+						TransactionId: tx.Id,
 						YesNo:         true,
 					}
 				}()
 			}
 		}
 	} else {
-		logLines = append(logLines, fmt.Sprintf("Node ID: %s, Transaction: %d, From: %s, From ID: %s, Value: %d", node.Wallet.Id, tx.TxId, sourceType, tx.From, tx.Value))
+		logLines = append(logLines, fmt.Sprintf("Node ID: %s, Transaction: %d, From: %s, From ID: %s, Value: %d", node.Wallet.Id, tx.Id, sourceType, tx.From, tx.Value))
 
 		// Info("Received an invalid transaction")
-		logLines = append(logLines, fmt.Sprintf("delegate %s: received invalid transaction %d from an %s X with value: %d\n", node.Wallet.Id, tx.TxId, sourceType, tx.Value))
+		logLines = append(logLines, fmt.Sprintf("delegate %s: received invalid transaction %d from an %s X with value: %d\n", node.Wallet.Id, tx.Id, sourceType, tx.Value))
 
 		// go func() {
 		for k, _ := range getNodes() {
@@ -112,10 +113,10 @@ func (node *Node) validateBlockAndTransmit(tx *types.Transaction, sourceType str
 			if destinationNode.IsDelegate &&
 				destinationNode.Wallet.Id != node.Wallet.Id {
 
-				logLines = append(logLines, fmt.Sprintf("sendVote()-false | Tx_%d(%s -> %s) | %s -> %s", tx.TxId, tx.From, tx.To, node.Wallet.Id, destinationNode.Wallet.Id))
+				logLines = append(logLines, fmt.Sprintf("sendVote()-false | Tx_%d(%s -> %s) | %s -> %s", tx.Id, tx.From, tx.To, node.Wallet.Id, destinationNode.Wallet.Id))
 				go func() {
 					destinationNode.VoteChannel <- Vote{
-						TransactionId: tx.TxId,
+						TransactionId: tx.Id,
 						YesNo:         false,
 					}
 				}()
@@ -136,11 +137,11 @@ func (node *Node) processTransaction(tx *types.Transaction) (bool, []string) {
 
 	logLines = append(logLines, fmt.Sprintf("processTransaction()"))
 
-	var validators = []types.WalletAddress{}
+	var validators = [][constants.AddressLength]byte{}
 	for _, v := range tx.CurrentValidators {
 		validators = append(validators, v)
 	}
-	//logLines = append(logLines, fmt.Sprintf("Tx_%d(%s -> [%d] -> %s) SeenBy{%s}", tx.TxId, tx.From, tx.Value, tx.To, strings.Join(validators, ",")))
+	//logLines = append(logLines, fmt.Sprintf("Tx_%d(%s -> [%d] -> %s) SeenBy{%s}", tx.Id, tx.From, tx.Value, tx.To, strings.Join(validators, ",")))
 
 	// Add THIS node as a validator, to be sent later
 	tx.CurrentValidators = append(tx.CurrentValidators, node.Wallet.Address)
@@ -152,7 +153,7 @@ func (node *Node) processTransaction(tx *types.Transaction) (bool, []string) {
 	}
 
 	// new balance maping
-	newBalances := make(map[types.WalletAddress]int64)
+	newBalances := make(map[[constants.AddressLength]byte]int64)
 	newBalances[tx.From] = (*getNodes()[tx.From]).Wallet.Balance
 	newBalances[tx.To] = (*getNodes()[tx.To]).Wallet.Balance
 
@@ -175,8 +176,8 @@ func (node *Node) processTransaction(tx *types.Transaction) (bool, []string) {
 			// break if tx goes after pointerBlock, but before pointerBlock.Next
 			if tx.Time.After(pointerBlock.Transaction.Time) && tx.Time.Before(pointerBlock.Next.Transaction.Time) {
 
-				logLines = append(logLines, fmt.Sprintf("pointerBlock.Transaction.Id: %d, pointerBlock.Next.Transaction.Id: %d", pointerBlock.Transaction.TxId, pointerBlock.Next.Transaction.TxId))
-				logLines = append(logLines, fmt.Sprintf("tx goes between tx %d and tx %d \n", pointerBlock.Transaction.TxId, pointerBlock.Next.Transaction.TxId))
+				logLines = append(logLines, fmt.Sprintf("pointerBlock.Transaction.Id: %d, pointerBlock.Next.Transaction.Id: %d", pointerBlock.Transaction.Id, pointerBlock.Next.Transaction.Id))
+				logLines = append(logLines, fmt.Sprintf("tx goes between tx %d and tx %d \n", pointerBlock.Transaction.Id, pointerBlock.Next.Transaction.Id))
 				newBalances[pointerBlock.Transaction.To] += pointerBlock.Transaction.Value
 
 				if pointerBlock.Transaction.From != node.GenesisBlock.Transaction.From { //don't set a negative balance for premined transfers
@@ -197,10 +198,10 @@ func (node *Node) processTransaction(tx *types.Transaction) (bool, []string) {
 
 	logLines = append(logLines, fmt.Sprintf("we are at the block index %d", blockIndex))
 
-	logLines = append(logLines, fmt.Sprintf("pointerBlock.Transaction.Id: %d", pointerBlock.Transaction.TxId))
+	logLines = append(logLines, fmt.Sprintf("pointerBlock.Transaction.Id: %d", pointerBlock.Transaction.Id))
 	logLines = append(logLines, fmt.Sprintf("new_balances[]: %s, Balance: %d", tx.From, newBalances[tx.From]))
 
-	logLines = append(logLines, fmt.Sprintf("current block is %d", pointerBlock.Transaction.TxId))
+	logLines = append(logLines, fmt.Sprintf("current block is %d", pointerBlock.Transaction.Id))
 	logLines = append(logLines, fmt.Sprintf("new_balances[%s]=%d", tx.From, newBalances[tx.From]))
 
 	// is new transaction valid?
@@ -224,7 +225,7 @@ func (node *Node) processTransaction(tx *types.Transaction) (bool, []string) {
 		for pointerBlock.Next != nil {
 			// is the following transaction valid?
 			if newBalances[pointerBlock.Transaction.From] >= pointerBlock.Transaction.Value {
-				logLines = append(logLines, fmt.Sprintf("yay! transaction %d is still valid", pointerBlock.Transaction.TxId))
+				logLines = append(logLines, fmt.Sprintf("yay! transaction %d is still valid", pointerBlock.Transaction.Id))
 				//yay! transaction is valid - update balances and continue onto next block
 				newBalances[pointerBlock.Transaction.From] -= pointerBlock.Transaction.Value
 				newBalances[pointerBlock.Transaction.To] += pointerBlock.Transaction.Value
@@ -236,7 +237,7 @@ func (node *Node) processTransaction(tx *types.Transaction) (bool, []string) {
 				}
 			}
 			if newBalances[pointerBlock.Transaction.From] < pointerBlock.Transaction.Value {
-				logLines = append(logLines, fmt.Sprintf("turns out transaction %d is invalid \n", pointerBlock.Transaction.TxId))
+				logLines = append(logLines, fmt.Sprintf("turns out transaction %d is invalid \n", pointerBlock.Transaction.Id))
 				//oh no! this previously believed valid block is actually invaid! D:
 				//remove block from list and keep going
 				pointerBlock.Prev.Next = pointerBlock.Next
@@ -253,7 +254,7 @@ func (node *Node) processTransaction(tx *types.Transaction) (bool, []string) {
 	return false, logLines
 }
 
-func contains(arr []types.WalletAddress, str types.WalletAddress) bool {
+func contains(arr [][constants.AddressLength]byte, str [constants.AddressLength]byte) bool {
 	for _, a := range arr {
 		if a == str {
 			return true

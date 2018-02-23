@@ -62,19 +62,19 @@ func (node *Node) VoteCounterProcessTx(tx *types.Transaction) {
 	var logLines = []string{}
 	var additionalLogLines = []string{}
 
-	theVotesForTx := node.AllVotes[tx.TxId]
+	theVotesForTx := node.AllVotes[tx.Id]
 	if theVotesForTx != nil {
-		logLines = append(logLines, fmt.Sprintf("GotVote()       | Tx_%d(%s -> %s) | %s", tx.TxId, tx.From, tx.To, node.Wallet.Id))
+		logLines = append(logLines, fmt.Sprintf("GotVote()       | Tx_%d(%s -> %s) | %s", tx.Id, tx.From, tx.To, node.Wallet.Id))
 
 		var totalDelegates = len(tx.CurrentValidators)
 
 		if totalDelegates == len(theVotesForTx.TotalVotesSoFar) {
 			if theVotesForTx.isValid(totalDelegates) {
-				additionalLogLines = updateAccounts(node.TxFromChainById[tx.TxId])
+				additionalLogLines = updateAccounts(node.TxFromChainById[tx.Id])
 
 				fromAcct := (*getNodes()[tx.From]).Wallet
 				toAcct := (*getNodes()[tx.To]).Wallet
-				logLines = append(logLines, fmt.Sprintf("ProcessedVote() | Tx_%d(%s -> %s) | %s (%d, %d)", tx.TxId, tx.From, tx.To, node.Wallet.Id, fromAcct.Balance, toAcct.Balance))
+				logLines = append(logLines, fmt.Sprintf("ProcessedVote() | Tx_%d(%s -> %s) | %s (%d, %d)", tx.Id, tx.From, tx.To, node.Wallet.Id, fromAcct.Balance, toAcct.Balance))
 			} else {
 				logLines = append(logLines, fmt.Sprintf("Vote Failed"))
 			}
@@ -108,7 +108,7 @@ func (v Votes) isValid(totalDelegates int) bool {
 func updateAccounts(t *types.Transaction) []string {
 	var logLines = []string{}
 
-	logLines = append(logLines, fmt.Sprintf("Update Accounts: %d", t.TxId))
+	logLines = append(logLines, fmt.Sprintf("Update Accounts: %d", t.Id))
 
 	fromAcct := (*getNodes()[t.From]).Wallet
 	toAcct := (*getNodes()[t.To]).Wallet
