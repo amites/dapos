@@ -103,5 +103,8 @@ func (daposService *DAPoSService) RegisterTestNode(ctx context.Context, inNode *
 
 // CreateTransaction
 func (daposService *DAPoSService) CreateTransaction(transaction *types.Transaction, transactions []types.Transaction) (*types.Transaction, error) {
+	log.WithFields(log.Fields{
+		"method": "DAPoSService.CreateTransaction",
+	}).Info(transaction.String())
 	return nil, nil
 }
