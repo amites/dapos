@@ -57,6 +57,8 @@ func (node *Node) ProcessTx(tx *types.Transaction) {
 	log.Info(strings.Join(logLines, "\n"))
 }
 
+//TODO:  Cannot have cyclical dependency, so we need to either return Transaction as valid to do the broadcast
+//TODO:  Or we will have to move the packeages.  Waiting to do this since this code needs to be heavily refactored from dapos-poc
 func (node *Node) validateBlockAndTransmit(tx *types.Transaction, sourceType string) []string {
 	var logLines = []string{}
 	var additionalLogLines = []string{}
@@ -83,14 +85,14 @@ func (node *Node) validateBlockAndTransmit(tx *types.Transaction, sourceType str
 
 		// set the delegate id to current id and broadcast the valid transaction to other nodes
 
-		for k, _ := range getNodes() {
-			destinationNode := getNodes()[k]
+		for k, _ := range GetNodes() {
+			destinationNode := GetNodes()[k]
 			if destinationNode.IsDelegate &&
 				destinationNode.Wallet.Id != node.Wallet.Id &&
-				!contains(tx.CurrentValidators, destinationNode.Wallet.Address) {
+				!contains(tx.Validators, destinationNode.Wallet.Address) {
 
 				logLines = append(logLines, fmt.Sprintf("sendTx()        | Tx_%d(%s -> %s) | %s -> %s", tx.Id, tx.From, tx.To, node.Wallet.Id, destinationNode.Wallet.Id))
-				go BroadcastTx(tx)
+				//go dapos.BroadcastTx(tx)
 
 				logLines = append(logLines, fmt.Sprintf("sendVote()-true | Tx_%d(%s -> %s) | %s -> %s", tx.Id, tx.From, tx.To, node.Wallet.Id, destinationNode.Wallet.Id))
 				go func() {
@@ -108,8 +110,8 @@ func (node *Node) validateBlockAndTransmit(tx *types.Transaction, sourceType str
 		logLines = append(logLines, fmt.Sprintf("delegate %s: received invalid transaction %d from an %s X with value: %d\n", node.Wallet.Id, tx.Id, sourceType, tx.Value))
 
 		// go func() {
-		for k, _ := range getNodes() {
-			destinationNode := getNodes()[k]
+		for k, _ := range GetNodes() {
+			destinationNode := GetNodes()[k]
 			if destinationNode.IsDelegate &&
 				destinationNode.Wallet.Id != node.Wallet.Id {
 
@@ -138,13 +140,13 @@ func (node *Node) processTransaction(tx *types.Transaction) (bool, []string) {
 	logLines = append(logLines, fmt.Sprintf("processTransaction()"))
 
 	var validators = [][constants.AddressLength]byte{}
-	for _, v := range tx.CurrentValidators {
+	for _, v := range tx.Validators {
 		validators = append(validators, v)
 	}
 	//logLines = append(logLines, fmt.Sprintf("Tx_%d(%s -> [%d] -> %s) SeenBy{%s}", tx.Id, tx.From, tx.Value, tx.To, strings.Join(validators, ",")))
 
 	// Add THIS node as a validator, to be sent later
-	tx.CurrentValidators = append(tx.CurrentValidators, node.Wallet.Address)
+	tx.Validators = append(tx.Validators, node.Wallet.Address)
 
 	// Don't validate transactions on 0 or less
 	if tx.Value <= 0 {
@@ -154,8 +156,8 @@ func (node *Node) processTransaction(tx *types.Transaction) (bool, []string) {
 
 	// new balance maping
 	newBalances := make(map[[constants.AddressLength]byte]int64)
-	newBalances[tx.From] = (*getNodes()[tx.From]).Wallet.Balance
-	newBalances[tx.To] = (*getNodes()[tx.To]).Wallet.Balance
+	newBalances[tx.From] = (*GetNodes()[tx.From]).Wallet.Balance
+	newBalances[tx.To] = (*GetNodes()[tx.To]).Wallet.Balance
 
 	pointerBlock := node.CurrentBlock
 

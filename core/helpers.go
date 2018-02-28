@@ -2,13 +2,14 @@ package core
 
 import (
 	"math/rand"
-	"sync"
 	"time"
 	"github.com/dispatchlabs/disgo_commons/types"
-	"github.com/dispatchlabs/disgo_commons/crypto"
 	log "github.com/sirupsen/logrus"
 	"github.com/dispatchlabs/disgo_commons/constants"
+	"sync"
 )
+
+var once sync.Once
 
 func logSeparator() {
 	log.Info("~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~")
@@ -35,7 +36,7 @@ func GetRandomNumber(boundary int) int {
 
 func getDictKeysAsList() [][constants.AddressLength]byte {
 	keys := make([][constants.AddressLength]byte, 0)
-	for k, _ := range getNodes() {
+	for k, _ := range GetNodes() {
 		keys = append(keys, k)
 	}
 
@@ -43,13 +44,13 @@ func getDictKeysAsList() [][constants.AddressLength]byte {
 }
 
 func getRandomNonDelegateNode(nodeToIgnore *Node) *Node {
-	nodes := getNodes()
+	nodes := GetNodes()
 	nodesNames := getDictKeysAsList()
 
 	var theNode *Node
 	for {
 		randomNum := GetRandomNumber(len(nodes))
-		theNode = getNodes()[nodesNames[randomNum]]
+		theNode = GetNodes()[nodesNames[randomNum]]
 
 		if nodeToIgnore != nil && nodeToIgnore.Wallet.Id == theNode.Wallet.Id {
 			continue
@@ -66,7 +67,6 @@ func getRandomNonDelegateNode(nodeToIgnore *Node) *Node {
 
 var nodes *map[[constants.AddressLength]byte]*Node
 
-var once sync.Once
 
 var bytes = make([]byte, 0, 0)
 
@@ -74,14 +74,14 @@ var GenesisBlock = &Block{
 	Prev: nil,
 	Next: nil,
 	Transaction: types.Transaction{
-		0,
-		crypto.NewHash(),
-		0,
-		[constants.AddressLength]byte{},
-		[constants.AddressLength]byte{},
-		100,
-		time.Now(),
-		[][constants.AddressLength]byte{},
+		//0,
+		//crypto.NewHash(),
+		//0,
+		//[constants.AddressLength]byte{},
+		//[constants.AddressLength]byte{},
+		//100,
+		//time.Now(),
+		//[][constants.AddressLength]byte{},
 	},
 }
 
@@ -104,16 +104,16 @@ func CreateNodeAndAddToList(address [constants.AddressLength]byte, newMember str
 	}
 	node.CurrentBlock = node.GenesisBlock
 
-	getNodes()[address] = &node
+	GetNodes()[address] = &node
 	return &node
 }
 
 func ElectDelegate(address [constants.AddressLength]byte) {
-	getNodes()[address].IsDelegate = true
-	getNodes()[address].StartVoteCounting()
+	GetNodes()[address].IsDelegate = true
+	GetNodes()[address].StartVoteCounting()
 }
 
-func getNodes() map[[constants.AddressLength]byte]*Node {
+func GetNodes() map[[constants.AddressLength]byte]*Node {
 	once.Do(func() {
 		nodes = &map[[constants.AddressLength]byte]*Node{}
 	})
@@ -121,5 +121,5 @@ func getNodes() map[[constants.AddressLength]byte]*Node {
 }
 
 func getNodeByAddress(address [constants.AddressLength]byte) *Node {
-	return getNodes()[address]
+	return GetNodes()[address]
 }

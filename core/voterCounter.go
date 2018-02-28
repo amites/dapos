@@ -66,14 +66,14 @@ func (node *Node) VoteCounterProcessTx(tx *types.Transaction) {
 	if theVotesForTx != nil {
 		logLines = append(logLines, fmt.Sprintf("GotVote()       | Tx_%d(%s -> %s) | %s", tx.Id, tx.From, tx.To, node.Wallet.Id))
 
-		var totalDelegates = len(tx.CurrentValidators)
+		var totalDelegates = len(tx.Validators)
 
 		if totalDelegates == len(theVotesForTx.TotalVotesSoFar) {
 			if theVotesForTx.isValid(totalDelegates) {
 				additionalLogLines = updateAccounts(node.TxFromChainById[tx.Id])
 
-				fromAcct := (*getNodes()[tx.From]).Wallet
-				toAcct := (*getNodes()[tx.To]).Wallet
+				fromAcct := (*GetNodes()[tx.From]).Wallet
+				toAcct := (*GetNodes()[tx.To]).Wallet
 				logLines = append(logLines, fmt.Sprintf("ProcessedVote() | Tx_%d(%s -> %s) | %s (%d, %d)", tx.Id, tx.From, tx.To, node.Wallet.Id, fromAcct.Balance, toAcct.Balance))
 			} else {
 				logLines = append(logLines, fmt.Sprintf("Vote Failed"))
@@ -110,8 +110,8 @@ func updateAccounts(t *types.Transaction) []string {
 
 	logLines = append(logLines, fmt.Sprintf("Update Accounts: %d", t.Id))
 
-	fromAcct := (*getNodes()[t.From]).Wallet
-	toAcct := (*getNodes()[t.To]).Wallet
+	fromAcct := (*GetNodes()[t.From]).Wallet
+	toAcct := (*GetNodes()[t.To]).Wallet
 	fromAcct.Balance -= t.Value
 	toAcct.Balance += t.Value
 	// fromAcct.Transactions = append(fromAcct.Transactions, t)
